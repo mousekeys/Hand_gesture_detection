@@ -1,5 +1,5 @@
 # Hand_gesture_detection
-A mediapipe approach to hand geustures, utilizes API, models , python , mediapipe.
+A mediapipe approach to hand gestures, utilizes API, models , python , mediapipe.
 
 Points ot be considered:
 * In the python environment remeber that the arrays are connected to each other so it requires copy to create a copy
