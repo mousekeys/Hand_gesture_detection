@@ -5,38 +5,9 @@ import pandas as pd
 import cv2
 import argparse
 import mediapipe as mdp
-
-
-# GETS THE REQUIRED ARGUMENTS IN CLI 
-
-def get_args():
-    parser=argparse.ArgumentParser()
-
-    parser.add_argument("--device", type= int,default=0)
-    parser.add_argument("--staticimage", action="store_true")
-    parser.add_argument("--width",help="Maximun width", type= int,default=960)
-    parser.add_argument("--height",help="Maximun height", type= int,default=540)
-
-    parser.add_argument("--minDetection" ,help="Minimum confidence for detection",type=float,default=0.6)
-    parser.add_argument("--minTracking" ,help="Minimum confidenxce for tracking",type=float,default=0.8)
-
-    args = parser.parse_args()
-
-    return args
-
-
-def camera_input(cam_device,cam_width,cam_height):
-
-#POPERLY INITIALIZE CAMERA FOR WORKING
-    cam=cv2.VideoCapture(cam_device)
-    cam.set(cv2.CAP_PROP_FRAME_WIDTH,cam_width)
-    cam.set(cv2.CAP_PROP_FRAME_HEIGHT,cam_height)
-    print(cam)
-    cam.release()
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-    return cam
+import copy
+import os
+import csv
 
 def load_models(use_static_image_mode,min_detection,min_tracking):
 
@@ -50,23 +21,86 @@ def load_models(use_static_image_mode,min_detection,min_tracking):
         )
     return hands
 
-def main():
-    args=get_args()
-# GET THE CAMERA ARGUMENTS FROM CLI COMMANDS
-    cam_device=args.device
-    cam_width=args.width
-    cam_height=args.height
-# GET THE CAMERA ARGUMENTS FROM CLI COMMANDS
-    use_static_image_mode=args.staticimage
-    min_detection=args.minDetection
+def camera_input(cam_device,cam_width,cam_height):
 
-    min_tracking=args.minTracking
+#POPERLY INITIALIZE CAMERA FOR WORKING
+    cam=cv2.VideoCapture(cam_device)
+    cam.set(cv2.CAP_PROP_FRAME_WIDTH,cam_width)
+    cam.set(cv2.CAP_PROP_FRAME_HEIGHT,cam_height)
+    print(cam)
+    cam.release()
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
-    cam=camera_input(cam_device,cam_width,cam_height)
-    hands=load_models(use_static_image_mode,min_detection,min_tracking)
+# NOW TO FIND THE EXACT COORDINATES IN THE SCREEN AS THE IMAGES ARE NORMALIZED RIGHT NPW
+
+def screen_coordinates(normalized_coodr,image):
+    img_width,img_height=image.shape[0],image.shape[1]
+
+    screen_coordinate=[]
+
+    for i,landmark in enumerate(normalized_coodr[0].landmark):
+        screen_x=min(int(landmark.x*img_width),img_width-1)
+        screen_y=min(int(landmark.y*img_height),img_height-1)
+        #NO NEED FOR LANDMARK Z AND ALSO IMAGE.SHAPE[2] PROVIDES COLOR INDEXES LIKE RGB SO 3
+        screen_coordinate.append([screen_x,screen_y])
+
+    return screen_coordinate
+
+#NORMALIZATION SO THAT WE CAN DO SOMETHING EVEN WHEN THE HAND IS MOVED AND IT STILL WORKS ON THE HAND GEUSTURE
+#THE NORMALIZED POINTS MAKES IT SO THA WE NEED LESSER DATA AND SIMPLER MODEL TO TRAIN AND DETECT
+
+def normalized_values(screen_coordinate):
+
+    temp_landmark=copy.deepcopy(screen_coordinate)
+    base_x,base_y=0,0
+
+    print(type(temp_landmark))
+
+    for i, pixel_val in enumerate(temp_landmark):
+
+        if i==0:
+            base_x,base_y=screen_coordinate[0][0],screen_coordinate[0][1]
+        
+        temp_landmark[i][0]=pixel_val[0]-base_x
+        temp_landmark[i][1]=pixel_val[1]-base_y
+
+    temp_landmark=np.array(temp_landmark).flatten()
+    max_val=max(list(map(abs,temp_landmark)))
+
+    def normalize_(val):
+        return val/max_val
     
-main()
+    temp_landmark=list(map(normalize_,temp_landmark))
 
+    return temp_landmark
+    
 
+def store_data(number,normalized_one):
+    csv_path=r"datas/pre_processed.csv"
+    
+    with open(csv_path,'a',newline="") as send:
+        store=csv.writer(send)
+        store.writerow([number,*normalized_one])
+    
+    return
 
+def image_path(path=''):
+    paths=[]
+    path_list=[]
+    pathx=[]
+    if not path:
+        path=r"datas\photos_hands"
+    all_files=list(map(int,os.listdir(path)))
+    for i in range(len(all_files)):
+        paths.append(os.path.join(path,str(all_files[i])))
+    for path in paths:
+        path_list=[]
+        for i in os.listdir(path):
+            if i.endswith('.png'):
+                path_list.append(os.path.join(path,i))
+        pathx.append(list(path_list))
+        
+    return pathx
 
+image_path()
