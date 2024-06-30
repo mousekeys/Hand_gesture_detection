@@ -9,6 +9,24 @@ import copy
 import os
 import csv
 
+#GETS THE REQUIRED ARGUMENTS IN CLI 
+
+def get_args():
+    parser=argparse.ArgumentParser()
+
+    parser.add_argument("--device", type= int,default=0)
+    parser.add_argument("--staticimage", action="store_true")
+    parser.add_argument("--width",help="Maximun width", type= int,default=960)
+    parser.add_argument("--height",help="Maximun height", type= int,default=540)
+
+    parser.add_argument("--minDetection" ,help="Minimum confidence for detection",type=float,default=0.6)
+    parser.add_argument("--minTracking" ,help="Minimum confidenxce for tracking",type=float,default=0.8)
+
+    args = parser.parse_args()
+
+    return args
+
+
 def load_models(use_static_image_mode,min_detection,min_tracking):
 
 #LOAD MODEL TO DETECT LANDMARKS IN HANDS
@@ -101,6 +119,39 @@ def image_path(path=''):
                 path_list.append(os.path.join(path,i))
         pathx.append(list(path_list))
         
-    return pathx
+    return pathx,all_files
 
 image_path()
+
+
+def main():
+    
+# GET THE CAMERA ARGUMENTS FROM CLI COMMANDS
+    cam_device=0
+    cam_width=960
+    cam_height=540
+# GET THE CAMERA ARGUMENTS FROM CLI COMMANDS
+    use_static_image_mode=True
+    min_detection=0.6
+    min_tracking=0.8
+
+    cam=camera_input(cam_device,cam_width,cam_height)
+    hands=load_models(use_static_image_mode,min_detection,min_tracking)
+    paths,num=image_path()
+    idx=0
+    print(paths)
+    for path in paths:
+        for i in path:
+            image=cv2.imread(i)
+            image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+            results=hands.process(image)
+            screen_coordinate=screen_coordinates(results.multi_hand_landmarks,image)
+            normalized_coodr=normalized_values(screen_coordinate)
+            store_data(num[idx],normalized_coodr)
+        idx=+1
+
+
+if __name__=='main':
+    main()
+
+main()
