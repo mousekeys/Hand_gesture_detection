@@ -202,7 +202,7 @@ def main():
 #         idx=+1
 
 
-# if __name__=='main':
-#     main()
+if __name__=='main':
+    main()
 
 main()
