@@ -52,16 +52,19 @@ def camera_input(cam_device,cam_width,cam_height):
 
 # NOW TO FIND THE EXACT COORDINATES IN THE SCREEN AS THE IMAGES ARE NORMALIZED RIGHT NPW
 
+# NOW TO FIND THE EXACT COORDINATES IN THE SCREEN AS THE IMAGES ARE NORMALIZED RIGHT NPW
+
 def screen_coordinates(normalized_coodr,image):
-    img_width,img_height=image.shape[0],image.shape[1]
+    img_height,img_width,_=image.shape
 
     screen_coordinate=[]
 
-    for i,landmark in enumerate(normalized_coodr[0].landmark):
-        screen_x=min(int(landmark.x*img_width),img_width-1)
-        screen_y=min(int(landmark.y*img_height),img_height-1)
+    for _,landmark in enumerate(normalized_coodr.landmark):
+        screen_x=int(landmark.x*img_width)
+        screen_y=int(landmark.y*img_height)
         #NO NEED FOR LANDMARK Z AND ALSO IMAGE.SHAPE[2] PROVIDES COLOR INDEXES LIKE RGB SO 3
         screen_coordinate.append([screen_x,screen_y])
+        cv2.circle(image, (screen_x, screen_y), 5, (0, 255, 0), -1)
 
     return screen_coordinate
 
@@ -121,21 +124,30 @@ def image_path(path=''):
         
     return pathx,all_files
 
-image_path()
+def draw_landmarks(image,results,hands,screen_coordinate):
+    mdp_hands = mdp.solutions.hands
+# Check if any hands are detected.
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            # Draw the landmarks on the image.
+            mdp.solutions.drawing_utils.draw_landmarks(
+                image, hand_landmarks, mdp_hands.HAND_CONNECTIONS,
+                mdp.solutions.drawing_styles.get_default_hand_landmarks_style(),
+                mdp.solutions.drawing_styles.get_default_hand_connections_style()
+            )
 
+    # Display the image with landmarks.
+    cv2.imshow('Hand Landmarks', image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 def main():
-    
-# GET THE CAMERA ARGUMENTS FROM CLI COMMANDS
-    cam_device=0
-    cam_width=960
-    cam_height=540
+
 # GET THE CAMERA ARGUMENTS FROM CLI COMMANDS
     use_static_image_mode=True
     min_detection=0.6
     min_tracking=0.8
 
-    cam=camera_input(cam_device,cam_width,cam_height)
     hands=load_models(use_static_image_mode,min_detection,min_tracking)
     paths,num=image_path()
     idx=0
@@ -143,15 +155,54 @@ def main():
     for path in paths:
         for i in path:
             image=cv2.imread(i)
-            image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
-            results=hands.process(image)
-            screen_coordinate=screen_coordinates(results.multi_hand_landmarks,image)
+            image = cv2.flip(image, 1)
+            # image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+            final_img=copy.deepcopy(image)
+            
+            image.flags.writeable = False
+            results = hands.process(image)
+            image.flags.writeable = True
+    
+            screen_coordinate=screen_coordinates(results.multi_hand_landmarks[0],final_img)
+           
             normalized_coodr=normalized_values(screen_coordinate)
+
+            final_img=draw_landmarks(final_img,results,hands,screen_coordinate)
             store_data(num[idx],normalized_coodr)
+          
+          
         idx=+1
 
 
-if __name__=='main':
-    main()
+
+# def main():
+    
+# # GET THE CAMERA ARGUMENTS FROM CLI COMMANDS
+#     cam_device=0
+#     cam_width=960
+#     cam_height=540
+# # GET THE CAMERA ARGUMENTS FROM CLI COMMANDS
+#     use_static_image_mode=True
+#     min_detection=0.6
+#     min_tracking=0.8
+
+#     cam=camera_input(cam_device,cam_width,cam_height)
+#     hands=load_models(use_static_image_mode,min_detection,min_tracking)
+#     paths,num=image_path()
+#     idx=0
+#     print(paths)
+#     for path in paths:
+#         for i in path:
+#             image=cv2.imread(i)
+#             image=cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
+#             results=hands.process(image)
+#             screen_coordinate=screen_coordinates(results.multi_hand_landmarks,image)
+#             normalized_coodr=normalized_values(screen_coordinate)
+#             store_data(num[idx],normalized_coodr)
+#         idx=+1
+
+
+# if __name__=='main':
+#     main()
 
 main()
